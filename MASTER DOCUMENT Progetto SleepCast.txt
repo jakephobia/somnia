@@ -1,0 +1,151 @@
+MASTER DOCUMENT: Progetto "SleepCast" (YouTube to Sleep Audio Mixer)
+1. Panoramica del Progetto
+
+L'obiettivo è sviluppare un'applicazione web (Client + Server leggero) che estragga l'audio da un video YouTube (tipicamente un podcast) e lo trasformi in una traccia per favorire il sonno. Il sistema deve offrire un'interfaccia a tre canali per mixare la voce del podcast (rallentata in modo naturale), musica generativa e loop di suoni ambientali.
+2. Architettura e Stack Tecnologico
+
+L'applicazione è divisa in due macro-aree:
+Backend (Estrazione Audio)
+
+    Ambiente: Node.js con Express.
+
+    Libreria Core: yt-dlp (eseguito tramite child process) o librerie wrapper npm compatibili.
+
+    Funzione: Ricevere l'URL di YouTube dal frontend, scaricare il flusso audio nel formato più leggero disponibile (es. .m4a o .webm), convertirlo temporaneamente se necessario e servirlo come stream o file statico temporaneo al frontend, aggirando le restrizioni CORS.
+
+Frontend (Motore Audio e Interfaccia)
+
+    Ambiente: HTML5, CSS, JavaScript (Vanilla o moduli ES6).
+
+    Motore Audio Principale: Tone.js. Gestirà il routing audio, i sintetizzatori, il playback dei loop ambientali, gli effetti (Delay) e il mixaggio finale (Gain/Volume).
+
+    Motore Time-Stretching: SoundTouchJS. Sarà dedicato esclusivamente all'elaborazione dell'AudioBuffer della traccia vocale per rallentarla a 0.85x preservando il pitch e la fluidità dei transienti.
+
+3. Struttura del Motore Audio (Routing)
+
+Il sistema prevede tre canali audio indipendenti che confluiscono nel Master Out.
+
+CH1: Voce (Podcast)
+Sorgente (SoundTouchJS Buffer) -> Tone.Gain (Controllo Volume) -> Tone.Delay (Eco leggero opzionale) -> Tone.Destination
+
+    In parallelo, il segnale vocale viene inviato a un Tone.Meter per calcolare il livello in tempo reale e pilotare il ducking del CH2.
+
+CH2: Musica Rilassante (Procedurale)
+Sorgente (Tone.FMSynth o Tone.Oscillator con filtro Passa Basso) -> Tone.Gain (Controllo Volume + Modulazione Ducking) -> Tone.Destination
+
+CH3: Suoni Ambientali (Loop)
+Sorgente (Tone.Player in loop con file locali es. pioggia.mp3) -> Tone.Gain (Controllo Volume) -> Tone.Destination
+4. Linee Guida per l'Implementazione (Per Cursor Composer)
+
+Di seguito, le specifiche tecniche per generare il codice delle singole funzionalità.
+A. Estrazione Backend
+
+Crea un endpoint /api/extract. L'endpoint riceve {"url": "youtube_link"}. Usa yt-dlp -f bestaudio -g <URL> per ottenere il link diretto allo stream audio, oppure scarica il file in una cartella /temp e restituisci l'URL locale al frontend.
+B. Inizializzazione Tone.js e Mixer
+
+Il frontend deve istanziare i canali. Utilizza Tone.Channel per semplificare la gestione di volume e pan.
+JavaScript
+
+// Esempio Architettura di Base Tone.js
+import * as Tone from 'tone';
+
+const masterMixer = {
+    voiceChannel: new Tone.Channel().toDestination(),
+    musicChannel: new Tone.Channel().toDestination(),
+    sfxChannel: new Tone.Channel().toDestination()
+};
+
+// Sintetizzatore procedurale morbido
+const synth = new Tone.FMSynth({
+    harmonicity: 0.5,
+    modulationIndex: 1.2,
+    envelope: { attack: 2, decay: 2, sustain: 1, release: 5 },
+    modulationEnvelope: { attack: 2, decay: 2, sustain: 1, release: 5 }
+}).connect(masterMixer.musicChannel);
+
+// Effetto Eco sulla voce
+const voiceDelay = new Tone.FeedbackDelay("8n", 0.3).connect(masterMixer.voiceChannel);
+voiceDelay.wet.value = 0.1; // Leggerissimo di default
+
+C. Integrazione SoundTouchJS (Il Rallentamento)
+
+Questa è la parte più delicata. Evita il playback rate nativo HTML5. Utilizza SoundTouchJS per preservare la qualità.
+
+    Carica l'audio dal backend e decodificalo tramite Tone.context.decodeAudioData.
+
+    Inizializza un'istanza di SoundTouch.
+
+    Imposta soundTouch.tempo = 0.85.
+
+    Utilizza un ScriptProcessorNode (o un AudioWorklet se supportato dalla libreria) per estrarre i chunk elaborati da SoundTouchJS e inviarli a masterMixer.voiceChannel.
+
+JavaScript
+
+// Pseudo-implementazione SoundTouchJS
+import { SoundTouch, SimpleFilter, getWebAudioNode } from 'soundtouchjs';
+
+async function playSlowedPodcast(audioBuffer) {
+    const soundTouch = new SoundTouch();
+    soundTouch.tempo = 0.85; // Il valore magico per la voce
+    
+    const source = new SimpleFilter(new AudioBufferSourceNode(Tone.context), soundTouch);
+    const node = getWebAudioNode(Tone.context, source);
+    
+    // Connetti il nodo generato da SoundTouchJS al canale voce di Tone.js
+    Tone.connect(node, masterMixer.voiceChannel);
+    node.connect(Tone.context.destination); 
+}
+
+D. Ducking (Sidechaining Simulato)
+
+Per abbassare la musica quando il podcaster parla, utilizza Tone.Meter sulla voce e aggiorna il volume della musica in un loop requestAnimationFrame. Questo approccio è più stabile rispetto all'uso dei compressori nativi per effetti di ducking pronunciati.
+JavaScript
+
+const voiceMeter = new Tone.Meter();
+masterMixer.voiceChannel.connect(voiceMeter);
+
+function updateDucking() {
+    requestAnimationFrame(updateDucking);
+    const voiceLevel = voiceMeter.getValue(); // Ritorna un valore in dB
+    
+    // Mappa il livello della voce (es. da -60dB a 0dB) 
+    // al volume della musica. Se la voce è alta, abbassa la musica.
+    if (voiceLevel > -30) {
+        masterMixer.musicChannel.volume.rampTo(-15, 0.1); 
+    } else {
+        masterMixer.musicChannel.volume.rampTo(0, 0.5); // Torna su dolcemente
+    }
+}
+updateDucking();
+
+E. Interfaccia Utente (HTML/CSS)
+
+L'UI deve essere minimale, scura (tema notturno per favorire il sonno) e contenere:
+
+    Un campo input per l'URL di YouTube.
+
+    Un pulsante "Genera SleepCast".
+
+    Tre slider range (Min -60, Max 5, Default 0) per il volume di Voce, Musica e Suoni.
+
+    Un menu a tendina per selezionare il suono ambientale (Pioggia, Rumore Marrone, Vento).
+
+    Un toggle per attivare/disattivare l'Eco sulla voce.
+
+5. Struttura delle Directory Consigliata
+Plaintext
+
+/sleepcast-tool
+├── package.json
+├── /backend
+│   └── server.js        (Express + yt-dlp logic)
+├── /public
+│   ├── index.html       (Interfaccia utente)
+│   ├── /css
+│   │   └── style.css
+│   ├── /js
+│   │   ├── app.js       (Logica UI e chiamate fetch)
+│   │   └── audio.js     (Logica Tone.js e SoundTouchJS)
+│   └── /assets
+│       └── rain.mp3
+└── README.md

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0e1a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>SleepCast</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header" role="banner">
+      <div class="logo">
+        <svg class="logo__icon" width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <circle cx="16" cy="16" r="14" stroke="url(#grad)" stroke-width="2" fill="none" opacity=".6"/>
+          <path d="M16 6 C10 10, 8 16, 12 22 C14 25, 18 25, 20 22 C24 16, 22 10, 16 6Z" fill="url(#grad)" opacity=".8"/>
+          <defs><linearGradient id="grad" x1="0" y1="0" x2="32" y2="32"><stop offset="0%" stop-color="#818cf8"/><stop offset="100%" stop-color="#c084fc"/></linearGradient></defs>
+        </svg>
+        <div>
+          <h1 class="logo__title">SleepCast</h1>
+          <p class="logo__sub">Trasforma i podcast in tracce per il sonno</p>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <!-- Source -->
+      <section class="card card--source" aria-label="Sorgente audio">
+        <div class="card__header">
+          <svg class="card__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <h2 class="card__title">Sorgente</h2>
+        </div>
+
+        <label class="field">
+          <span class="field__label">URL YouTube</span>
+          <input
+            type="url"
+            id="youtube-url"
+            class="field__input"
+            placeholder="Incolla il link del podcast..."
+            autocomplete="url"
+            inputmode="url"
+          />
+        </label>
+
+        <div class="actions">
+          <button type="button" id="btn-generate" class="btn btn--accent">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span>Genera SleepCast</span>
+          </button>
+          <button type="button" id="btn-ambient-only" class="btn btn--ghost">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            <span>Solo ambient</span>
+          </button>
+          <button type="button" id="btn-stop" class="btn btn--outline" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+            <span>Stop</span>
+          </button>
+        </div>
+
+        <p id="status-message" class="status" aria-live="polite"></p>
+      </section>
+
+      <!-- Mixer -->
+      <section class="card card--mixer" aria-label="Mixer audio">
+        <div class="card__header">
+          <svg class="card__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+          <h2 class="card__title">Mixer</h2>
+        </div>
+
+        <div class="channel">
+          <div class="channel__head">
+            <svg class="channel__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            <span class="channel__name">Voce</span>
+            <span id="value-voice" class="channel__db">0 dB</span>
+          </div>
+          <input type="range" id="slider-voice" min="-60" max="5" value="0" step="1" class="range" />
+        </div>
+
+        <div class="channel">
+          <div class="channel__head">
+            <svg class="channel__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            <span class="channel__name">Musica</span>
+            <span id="value-music" class="channel__db">0 dB</span>
+          </div>
+          <input type="range" id="slider-music" min="-60" max="5" value="0" step="1" class="range" />
+        </div>
+
+        <div class="channel">
+          <div class="channel__head">
+            <svg class="channel__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2s4.5 2 4.5 10S8 22 8 22"/><path d="M11.5 7s2.3 1.3 2.3 5-2.3 5-2.3 5"/></svg>
+            <span class="channel__name">Ambiente</span>
+            <span id="value-sfx" class="channel__db">0 dB</span>
+          </div>
+          <input type="range" id="slider-sfx" min="-60" max="5" value="0" step="1" class="range" />
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="option-row">
+          <label class="field field--inline">
+            <span class="field__label">Suono ambientale</span>
+            <div class="field__select-wrap">
+              <select id="select-ambient" class="field__select">
+                <option value="rain">Pioggia</option>
+                <option value="brown-noise">Rumore Marrone</option>
+                <option value="wind">Vento</option>
+              </select>
+              <svg class="field__select-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+          </label>
+        </div>
+
+        <div class="option-row">
+          <label class="toggle">
+            <input type="checkbox" id="toggle-echo" class="toggle__input" />
+            <span class="toggle__track" aria-hidden="true">
+              <span class="toggle__thumb"></span>
+            </span>
+            <span class="toggle__label">Eco sulla voce</span>
+          </label>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>SleepCast &mdash; ascolta, rilassati, dormi.</p>
+    </footer>
+  </div>
+
+  <script src="dist/app.js" type="module"></script>
+</body>
+</html>
